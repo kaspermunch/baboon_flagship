@@ -30,7 +30,7 @@ def merge_vcf_by_chrom(vcf_paths, tabix_paths, output_path, chrom):
     """
     inputs = {'paths': vcf_paths + tabix_paths}
     outputs = {'path': output_path}
-    options = {'memory': '8g',
+    options = {'memory': '15g',
                'walltime': '0-03:00:00'}
     spec = f"bcftools merge --regions {chrom} --missing-to-ref -Oz -o {output_path} {' '.join(vcf_paths)}"
     return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)

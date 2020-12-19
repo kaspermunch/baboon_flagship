@@ -1,7 +1,7 @@
 import os, sys
 from gwf import Workflow
 from gwf.workflow import collect
-from templates import *
+from templates_vcfmerge import *
 
 gwf = Workflow(defaults={'account': 'primatediversity'})
 
