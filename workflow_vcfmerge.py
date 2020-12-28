@@ -5,6 +5,17 @@ from templates_vcfmerge import *
 
 gwf = Workflow(defaults={'account': 'primatediversity'})
 
+
+# Samples with strange contig names...:
+# PD_0265
+# PD_0266
+# PD_0267
+# PD_0268
+# PD_0269
+# PD_0270
+# PD_0271
+# PD_0272
+
 # paths to VCF files:
 baboon_samples = [
  'PD_0199', 'PD_0200', 'PD_0201', 'PD_0202', 'PD_0203', 'PD_0204', 'PD_0205', 'PD_0206', 'PD_0207', 
@@ -12,7 +23,7 @@ baboon_samples = [
  'PD_0217', 'PD_0218', 'PD_0219', 'PD_0220', 'PD_0221', 'PD_0222', 'PD_0223', 'PD_0224', 'PD_0225', 
  'PD_0226', 'PD_0227', 'PD_0228', 'PD_0229', 'PD_0230', 'PD_0231', 'PD_0232', 'PD_0233', 'PD_0234', 
  'PD_0235', 'PD_0236', 'PD_0237', 'PD_0238', 'PD_0239', 'PD_0240', 'PD_0241', 'PD_0242', 'PD_0243', 
- 'PD_0244', 'PD_0265', 'PD_0266', 'PD_0267', 'PD_0268', 'PD_0269', 'PD_0270', 'PD_0271', 'PD_0272', 
+ 'PD_0244', #'PD_0265', 'PD_0266', 'PD_0267', 'PD_0268', 'PD_0269', 'PD_0270', 'PD_0271', 'PD_0272', 
  'PD_0390', 'PD_0391', 'PD_0392', 'PD_0393', 'PD_0394', 'PD_0395', 'PD_0396', 'PD_0397', 'PD_0398', 
  'PD_0399', 'PD_0400', 'PD_0492', 'PD_0401', 'PD_0493', 'PD_0494', 'PD_0495', 'PD_0496', 'PD_0497', 
  'PD_0498', 'PD_0499', 'PD_0500', 'PD_0501', 'PD_0502', 'PD_0503', 'PD_0504', 'PD_0505', 'PD_0506', 
@@ -37,10 +48,21 @@ baboon_samples = [
 vcf_files = [f'/home/kmt/primatediversity/data/variants/{sample}.variable.filtered.HF.snps.vcf.gz' for sample in baboon_samples]
 vcf_files = [f for f in vcf_files if os.path.exists(f)]
 
+bed_files = [f'/home/kmt/primatediversity/data/callability/{sample}.variable.filtered.callable.bed.gz' for sample in baboon_samples]
+
+# lengths of chromosomes that snps are mapped to:
+chromosome_lengths_path = './metadata/macFas5.chrom.sizes.txt'
+
+
+## HACK FOR NOW: only include samples where both vcf and bed files exist: ######################
+vcf_files, bed_files = zip(*[(vcf, bed) for vcf, bed in zip(vcf_files, bed_files) if os.path.exists(vcf) and os.path.exists(bed)])
+vcf_files = list(vcf_files)
+bed_files = list(bed_files)
+################################################################################################
+
 # chromosome names:
-chromosomes = [line.split()[0] for line in open('metadata/panu3_chrom_sizes.txt').readlines()]
-# for now we skip unassigned contigs
-chromosomes = [chrom for chrom in chromosomes if not (chrom.startswith('chrUn') or chrom.startswith('chrM'))]
+#chromosomes = [line.split()[0] for line in open('metadata/panu3_chrom_sizes.txt').readlines()]
+chromosomes = [f'chr{chrom}' for chrom in range(1,21)] + ['chrX']
 
 # index VCF files:
 tabix_indexed = gwf.map(tabix_index, vcf_files)
@@ -65,9 +87,8 @@ for chrom in chromosomes:
 # index the merged VCF files:
 merged_tabix_indexed = gwf.map(tabix_index, merged_vcfs, name='tabix_merged')
 
-
-bed_files = [f'/home/kmt/primatediversity/data/callability/{sample}.variable.filtered.callable.bed.gz' for sample in baboon_samples]
-callable_zarr_path = './steps/callability.zarr'
+# transform bed files to zarr: (NB: the bed2zarr.py script skips unassigned chromosomes 'chrUn')
+callable_zarr_path = './steps/called_interv.zarr'
 
 gwf.target(name='bed2zarr',
      inputs=bed_files, 
@@ -79,7 +100,7 @@ rm -rf {callable_zarr_path}
 python ./scripts/bed2zarr.py {callable_zarr_path} {' '.join(bed_files)}
 """
 
-
+# transform vcf into zarr:
 callset_zarr_path = './steps/callset.zarr'
 merged_vcf_paths = collect(merged_vcfs, ['path'])['paths']
 
@@ -91,6 +112,20 @@ gwf.target(name='vcf2zarr',
 mkdir -p {os.path.dirname(callset_zarr_path)}
 rm -rf {callset_zarr_path}
 python ./scripts/vcf2zarr.py {callset_zarr_path} {' '.join(merged_vcf_paths)}
+"""
+
+
+# make call masks for each base in each individual:
+callmasks_zarr_path = './steps/call_masks.zarr'
+
+gwf.target(name='callmasks',
+     inputs=[callset_zarr_path, callable_zarr_path, chromosome_lengths_path], 
+     outputs=[callmasks_zarr_path], 
+     walltime='1-00:00:00', 
+     memory='24g') << f"""
+mkdir -p {os.path.dirname(callmasks_zarr_path)}
+rm -rf {callmasks_zarr_path}
+python ./scripts/callmasks.py {callable_zarr_path} {callset_zarr_path} {chromosome_lengths_path} {callmasks_zarr_path}
 """
 
 

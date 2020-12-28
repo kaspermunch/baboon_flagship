@@ -18,6 +18,11 @@ for bed_file in bed_paths:
     with gzip.open(bed_file, 'rt') as f:
         for line in f:
             chrom, start, end = line.split()
+
+            # SKIP UNASSIGNED CONTIGS:
+            if chrom.startswith('chrUn') or chrom.endswith('random'):
+                continue
+
             coordinates[chrom].append((int(start), int(end)))
 
     indiv = root.create_group(sample)

@@ -17,7 +17,7 @@ for vcf_path in vcf_paths:
     allel.vcf_to_zarr(vcf_path, zarr_path, group=chrom, fields='*', log=sys.stdout)
 
 # open callability masks for reading
-callability_masks = zarr.open_group('../steps/callability.zarr', mode='r')
+callability_masks = zarr.open_group('./steps/called_interv.zarr', mode='r')
 
 # open callset for reading + writing
 callset = zarr.open_group(zarr_path, mode='r+')
