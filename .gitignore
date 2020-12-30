@@ -131,3 +131,6 @@ dmypy.json
 
 .gwf*
 steps/
+
+*.zip
+dask-worker-space/
