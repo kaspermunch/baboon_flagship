@@ -30,7 +30,7 @@ for chrom, length in chromosome_lengths.items():
     group = root.create_group(chrom)
 
     # add big matrix for all individuals
-    callability_all = root.array('ALL', np.zeros((len(samples), length), dtype='b'))
+    callability_all = group.array('ALL', np.zeros((len(samples), length), dtype='b'))
 
     # loop samples
     for sample_idx, sample in enumerate(samples):

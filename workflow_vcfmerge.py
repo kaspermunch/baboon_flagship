@@ -6,6 +6,10 @@ from templates_vcfmerge import *
 gwf = Workflow(defaults={'account': 'primatediversity'})
 
 
+###############################################################################
+# Input data
+###############################################################################
+
 # Samples with strange contig names...:
 # PD_0265
 # PD_0266
@@ -42,11 +46,10 @@ baboon_samples = [
  'PD_0767', 'PD_0768', 'PD_0769', 'PD_0770', 'PD_0771', 'PD_0772', 'PD_0773', 'PD_0774', 'PD_0775', 
  'PD_0776', 'PD_0777', 'PD_0778', 'PD_0779', 'PD_0780', 'PD_0781', 'PD_0782', 'PD_0783', 'PD_0784', 
  'PD_0785', 'PD_0786', 'PD_0787', 'PD_0788', 'PD_0789', 'PD_0790', 'PD_0791', 'PD_0792', 'PD_0793',
- 'PD_0794_BAB']
+ #'PD_0794_BAB'
+ ]
 
-#vcf_files = gwf.glob('/home/kmt/primatediversity/data/variants/*.snps.vcf.gz')
 vcf_files = [f'/home/kmt/primatediversity/data/variants/{sample}.variable.filtered.HF.snps.vcf.gz' for sample in baboon_samples]
-vcf_files = [f for f in vcf_files if os.path.exists(f)]
 
 bed_files = [f'/home/kmt/primatediversity/data/callability/{sample}.variable.filtered.callable.bed.gz' for sample in baboon_samples]
 
@@ -54,20 +57,27 @@ bed_files = [f'/home/kmt/primatediversity/data/callability/{sample}.variable.fil
 chromosome_lengths_path = './metadata/macFas5.chrom.sizes.txt'
 
 
-## HACK FOR NOW: only include samples where both vcf and bed files exist: ######################
+## HACK FOR NOW: only include samples where both vcf and bed files exist: ----------------------
 vcf_files, bed_files = zip(*[(vcf, bed) for vcf, bed in zip(vcf_files, bed_files) if os.path.exists(vcf) and os.path.exists(bed)])
 vcf_files = list(vcf_files)
 bed_files = list(bed_files)
-################################################################################################
+assert len(vcf_files) == len(bed_files)
+## ----------------------------------------------------------------------------------------------
 
 # chromosome names:
 #chromosomes = [line.split()[0] for line in open('metadata/panu3_chrom_sizes.txt').readlines()]
 chromosomes = [f'chr{chrom}' for chrom in range(1,21)] + ['chrX']
 
-# index VCF files:
+###############################################################################
+# Index VCF files
+###############################################################################
+
 tabix_indexed = gwf.map(tabix_index, vcf_files)
 
-# merge VCF files to get one merged file per chromosome/contig
+###############################################################################
+# Merge VCF files to get one merged file per chromosome/contig
+###############################################################################
+
 merged_vcfs = []
 for chrom in chromosomes:
 
@@ -84,10 +94,16 @@ for chrom in chromosomes:
     )
     merged_vcfs.append(task.outputs)
 
-# index the merged VCF files:
+###############################################################################
+# Index the merged VCF files:
+###############################################################################
+
 merged_tabix_indexed = gwf.map(tabix_index, merged_vcfs, name='tabix_merged')
 
+###############################################################################
 # transform bed files to zarr: (NB: the bed2zarr.py script skips unassigned chromosomes 'chrUn')
+###############################################################################
+
 callable_zarr_path = './steps/called_interv.zarr'
 
 gwf.target(name='bed2zarr',
@@ -100,7 +116,10 @@ rm -rf {callable_zarr_path}
 python ./scripts/bed2zarr.py {callable_zarr_path} {' '.join(bed_files)}
 """
 
+###############################################################################
 # transform vcf into zarr:
+###############################################################################
+
 callset_zarr_path = './steps/callset.zarr'
 merged_vcf_paths = collect(merged_vcfs, ['path'])['paths']
 
@@ -114,14 +133,16 @@ rm -rf {callset_zarr_path}
 python ./scripts/vcf2zarr.py {callset_zarr_path} {' '.join(merged_vcf_paths)}
 """
 
-
+###############################################################################
 # make call masks for each base in each individual:
+###############################################################################
+
 callmasks_zarr_path = './steps/call_masks.zarr'
 
 gwf.target(name='callmasks',
      inputs=[callset_zarr_path, callable_zarr_path, chromosome_lengths_path], 
      outputs=[callmasks_zarr_path], 
-     walltime='1-00:00:00', 
+     walltime='2-00:00:00', 
      memory='24g') << f"""
 mkdir -p {os.path.dirname(callmasks_zarr_path)}
 rm -rf {callmasks_zarr_path}
