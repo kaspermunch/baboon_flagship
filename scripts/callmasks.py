@@ -26,11 +26,8 @@ for chrom, length in chromosome_lengths.items():
     # get samples for chromosome
     samples = callset[f'{chrom}/samples'][:]
 
-    # add group for chromosome
-    group = root.create_group(chrom)
-
     # add big matrix for all individuals
-    callability_all = group.array('ALL', np.zeros((len(samples), length), dtype='b'))
+    callability = root.array(chrom, np.zeros((len(samples), length), dtype='b'))
 
     # loop samples
     for sample_idx, sample in enumerate(samples):
@@ -40,12 +37,38 @@ for chrom, length in chromosome_lengths.items():
         for start, end in callability_masks[f'{sample}/{chrom}'][:]:
             called_positions.extend(range(start, end))
 
-        # add array for individual
-        callability = group.array(sample, np.zeros(length), dtype='b')
-
-        # update array for individual with called positions
-        callability.set_orthogonal_selection(called_positions, 1)
-
         # update matrix for all individuals with called positions
-        callability_all.set_orthogonal_selection(([sample_idx], called_positions), 1)            
+        callability.oindex[[sample_idx], called_positions] = 1
+
+
+
+# # loop chromosomes
+# for chrom, length in chromosome_lengths.items():
+
+#     # get samples for chromosome
+#     samples = callset[f'{chrom}/samples'][:]
+
+#     # add group for chromosome
+#     group = root.create_group(chrom)
+
+#     # add big matrix for all individuals
+#     callability_all = group.array('ALL', np.zeros((len(samples), length), dtype='b'))
+
+#     # loop samples
+#     for sample_idx, sample in enumerate(samples):
+
+#         # get called positions for individual
+#         called_positions = []
+#         for start, end in callability_masks[f'{sample}/{chrom}'][:]:
+#             called_positions.extend(range(start, end))
+
+#         # add array for individual
+#         callability = group.array(sample, np.zeros(length), dtype='b')
+
+#         # update array for individual with called positions
+#         callability.set_orthogonal_selection(called_positions, 1)
+
+#         # update matrix for all individuals with called positions
+#         callability_all.set_orthogonal_selection(([sample_idx], called_positions), 1)            
+
 
