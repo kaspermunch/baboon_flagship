@@ -20,6 +20,28 @@ for line in open(chromosome_lengths_path):
 # output path for callmask zarr
 root = zarr.open_group(callmasks_zarr_path, mode='w')
 
+# # loop chromosomes
+# for chrom, length in chromosome_lengths.items():
+
+#     # get samples for chromosome
+#     samples = callset[f'{chrom}/samples'][:]
+
+#     # add big matrix for all individuals
+#     callability = root.array(chrom, np.zeros((len(samples), length), dtype='b'))
+
+#     # loop samples
+#     for sample_idx, sample in enumerate(samples):
+
+#         # get called positions for individual
+#         called_positions = []
+#         for start, end in callability_masks[f'{sample}/{chrom}'][:]:
+#             called_positions.extend(range(start, end))
+
+#         # update matrix for all individuals with called positions
+#         callability.oindex[[sample_idx], called_positions] = 1
+
+
+
 # loop chromosomes
 for chrom, length in chromosome_lengths.items():
 
@@ -27,18 +49,20 @@ for chrom, length in chromosome_lengths.items():
     samples = callset[f'{chrom}/samples'][:]
 
     # add big matrix for all individuals
-    callability = root.array(chrom, np.zeros((len(samples), length), dtype='b'))
+    matrix = np.zeros((len(samples), length), dtype='b')
 
     # loop samples
     for sample_idx, sample in enumerate(samples):
 
-        # get called positions for individual
-        called_positions = []
         for start, end in callability_masks[f'{sample}/{chrom}'][:]:
-            called_positions.extend(range(start, end))
+            matrix[sample_idx, start:end] = 1
 
-        # update matrix for all individuals with called positions
-        callability.oindex[[sample_idx], called_positions] = 1
+    # add the array as zarr group
+    root.array(chrom, matrix)
+
+
+
+
 
 
 
