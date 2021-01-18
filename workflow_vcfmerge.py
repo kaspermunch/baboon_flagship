@@ -137,16 +137,16 @@ python ./scripts/vcf2zarr.py {callset_zarr_path} {' '.join(merged_vcf_paths)}
 # make call masks for each base in each individual:
 ###############################################################################
 
-# callmasks_zarr_path = './steps/call_masks.zarr'
+callmasks_zarr_path = './steps/call_masks.zarr'
 
-# gwf.target(name='callmasks',
-#      inputs=[callset_zarr_path, callable_zarr_path, chromosome_lengths_path], 
-#      outputs=[callmasks_zarr_path], 
-#      walltime='3-00:00:00', 
-#      memory='24g') << f"""
-# mkdir -p {os.path.dirname(callmasks_zarr_path)}
-# rm -rf {callmasks_zarr_path}
-# python ./scripts/callmasks.py {callable_zarr_path} {callset_zarr_path} {chromosome_lengths_path} {callmasks_zarr_path}
-# """
+gwf.target(name='callmasks',
+     inputs=[callset_zarr_path, callable_zarr_path, chromosome_lengths_path], 
+     outputs=[callmasks_zarr_path], 
+     walltime='3-00:00:00', 
+     memory='24g') << f"""
+mkdir -p {os.path.dirname(callmasks_zarr_path)}
+rm -rf {callmasks_zarr_path}
+python ./scripts/callmasks.py {callable_zarr_path} {callset_zarr_path} {chromosome_lengths_path} {callmasks_zarr_path}
+"""
 
 
