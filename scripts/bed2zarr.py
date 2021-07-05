@@ -7,7 +7,9 @@ import zarr
 from collections import defaultdict
 import gzip
 
-script_name, zarr_path, *bed_paths = sys.argv
+script_name, chromosomes, zarr_path, *bed_paths = sys.argv
+
+chromosomes = set(chromosomes.split(','))
 
 root = zarr.open_group(zarr_path, mode='w')
 
@@ -18,11 +20,8 @@ for bed_file in bed_paths:
     with gzip.open(bed_file, 'rt') as f:
         for line in f:
             chrom, start, end = line.split()
-
-            # SKIP UNASSIGNED CONTIGS:
-            if chrom.startswith('chrUn') or chrom.endswith('random'):
+            if chrom not in chromosomes:
                 continue
-
             coordinates[chrom].append((int(start), int(end)))
 
     indiv = root.create_group(sample)

@@ -134,3 +134,8 @@ steps/
 
 *.zip
 dask-worker-space/
+
+steps/
+figures/
+results/
+

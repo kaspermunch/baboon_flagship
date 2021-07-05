@@ -41,7 +41,7 @@ for chrom, callset_chrom in callset.groups():
         starts, ends = callability_masks[f'{sample}/{chrom}'][:].T
 
         # find snp positions that overlap callabilty mask
-        is_called = np.digitize(pos, starts) == np.digitize(pos, ends) + 1
+        is_called = np.digitize(pos-1, starts) == np.digitize(pos-1, ends) + 1  # -1 to pos to account for that VCF is one based and bed is zero-based
 
         # get index of the ones not in the callabilty mask
         idx_not_called = np.nonzero(~is_called)[0]

@@ -41,9 +41,15 @@ root = zarr.open_group(callmasks_zarr_path, mode='w')
 #         callability.oindex[[sample_idx], called_positions] = 1
 
 
-
 # loop chromosomes
 for chrom, length in chromosome_lengths.items():
+
+    # SKIP UNASSIGNED CONTIGS:
+    if chrom.startswith('chrUn') or chrom.endswith('random'):
+        continue
+
+    # add group for chromosome
+    group = root.create_group(chrom)
 
     # get samples for chromosome
     samples = callset[f'{chrom}/samples'][:]
@@ -57,9 +63,10 @@ for chrom, length in chromosome_lengths.items():
         for start, end in callability_masks[f'{sample}/{chrom}'][:]:
             matrix[sample_idx, start:end] = 1
 
-    # add the array as zarr group
-    root.array(chrom, matrix)
+        group.array(sample, matrix[sample_idx])
 
+    # add the array as zarr group
+    group.array('ALL', matrix)
 
 
 

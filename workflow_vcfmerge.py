@@ -1,9 +1,8 @@
 import os, sys
-from gwf import Workflow
+from gwf import Workflow, AnonymousTarget
 from gwf.workflow import collect
-from templates_vcfmerge import *
 
-gwf = Workflow(defaults={'account': 'primatediversity'})
+gwf = Workflow(defaults={'account': 'baboons'})
 
 
 ###############################################################################
@@ -66,17 +65,52 @@ assert len(vcf_files) == len(bed_files)
 
 # chromosome names:
 #chromosomes = [line.split()[0] for line in open('metadata/panu3_chrom_sizes.txt').readlines()]
-chromosomes = [f'chr{chrom}' for chrom in range(1,21)] + ['chrX']
+chromosomes = [f'chr{chrom}' for chrom in range(1,21)] + ['chrX', 'chrY', 'chrM']
 
 ###############################################################################
 # Index VCF files
 ###############################################################################
+
+def tabix_index(path):
+    """Makes a tabix index on a VCF files. Existing files are overwritten.
+
+    Args:
+        path (str): Path to VCF file.
+
+    Returns:
+        gwf.AnonymousTarget: GWF target.
+    """
+    inputs = {'path': path}
+    outputs = {'path': path + '.tbi'}
+    options = {'memory': '4g',
+               'walltime': '0-01:00:00'}
+    spec = f'tabix -f -p vcf {path}'
+    return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
 
 tabix_indexed = gwf.map(tabix_index, vcf_files)
 
 ###############################################################################
 # Merge VCF files to get one merged file per chromosome/contig
 ###############################################################################
+
+def merge_vcf_by_chrom(vcf_paths, tabix_paths, output_path, chrom):
+    """Merges variants for a chromosome from multiple VCF files into a single file.
+
+    Args:
+        vcf_paths (list): List of strings representing paths to VCF files to merge.
+        tabix_paths (list): List of strings representing paths to corresponding tabix files
+        output_path (str): Path to merged output file.
+        chrom (str): Chromosome to extract variants for.
+
+    Returns:
+        gwf.AnonymousTarget: GWF target.
+    """
+    inputs = {'paths': vcf_paths + tabix_paths}
+    outputs = {'path': output_path}
+    options = {'memory': '15g',
+               'walltime': '0-03:00:00'}
+    spec = f"bcftools merge --regions {chrom} --missing-to-ref -Oz -o {output_path} {' '.join(vcf_paths)}"
+    return AnonymousTarget(inputs=inputs, outputs=outputs, options=options, spec=spec)
 
 merged_vcfs = []
 for chrom in chromosomes:
@@ -113,7 +147,7 @@ gwf.target(name='bed2zarr',
      memory='8g') << f"""
 mkdir -p {os.path.dirname(callable_zarr_path)}
 rm -rf {callable_zarr_path}
-python ./scripts/bed2zarr.py {callable_zarr_path} {' '.join(bed_files)}
+python ./scripts/bed2zarr.py {','.join(chromosomes)} {callable_zarr_path} {' '.join(bed_files)}
 """
 
 ###############################################################################
@@ -143,10 +177,12 @@ gwf.target(name='callmasks',
      inputs=[callset_zarr_path, callable_zarr_path, chromosome_lengths_path], 
      outputs=[callmasks_zarr_path], 
      walltime='3-00:00:00', 
-     memory='24g') << f"""
+     memory='50g') << f"""
 mkdir -p {os.path.dirname(callmasks_zarr_path)}
 rm -rf {callmasks_zarr_path}
 python ./scripts/callmasks.py {callable_zarr_path} {callset_zarr_path} {chromosome_lengths_path} {callmasks_zarr_path}
 """
+
+
 
 
